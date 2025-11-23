@@ -1,8 +1,15 @@
 import express from "express";
 import CreateQuiz from "../models/CreateQuiz.js";
-import Student from "../models/Student.js"; // assuming you have a Student model
+import Student from "../models/Student.js";
+import { registerTeacher, loginTeacher } from "../controllers/teacherController.js";
 
 const router = express.Router();
+
+// POST register teacher
+router.post("/register", registerTeacher);
+
+// POST login teacher
+router.post("/login", loginTeacher);
 
 // GET teacher stats
 router.get("/stats", async (req, res) => {
