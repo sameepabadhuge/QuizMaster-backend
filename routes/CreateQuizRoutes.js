@@ -10,7 +10,7 @@ router.post("/", createQuiz);
 router.get("/", getAllQuizzes);
 
 // Get quiz by ID
-router.get("/:id", getQuizById);
+router.get("/quiz/:id", getQuizById);
 
 // Delete quiz (optional)
 router.delete("/:id", deleteQuiz);
