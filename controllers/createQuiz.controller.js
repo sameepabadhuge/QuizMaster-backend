@@ -43,7 +43,7 @@ export const getQuizById = async (req, res) => {
   try {
     const quiz = await CreateQuiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ success: false, message: "Quiz not found" });
-    res.json({ success: true, quiz });
+    res.json(quiz);
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
