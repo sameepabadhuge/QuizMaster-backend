@@ -10,6 +10,10 @@ const createQuizSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
   teacherId: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", required: true },
+  lectureName: { type: String },
+  subject: { type: String },
+  duration: { type: Number },
+  difficulty: { type: String },
   questions: [questionSchema],
   createdAt: { type: Date, default: Date.now },
 });
