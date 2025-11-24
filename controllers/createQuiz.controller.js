@@ -50,11 +50,71 @@ export const getQuizById = async (req, res) => {
   }
 };
 
-// 🗑️ Optional: Delete quiz
+// 🗑️ Delete quiz
 export const deleteQuiz = async (req, res) => {
   try {
-    await CreateQuiz.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: "Quiz deleted" });
+    const { id } = req.params;
+    const { teacherId } = req.body;
+
+    const quiz = await CreateQuiz.findById(id);
+    if (!quiz) return res.status(404).json({ success: false, message: "Quiz not found" });
+
+    // Check if teacher owns the quiz
+    if (quiz.teacherId.toString() !== teacherId) {
+      return res.status(403).json({ success: false, message: "Unauthorized: You can only delete your own quizzes" });
+    }
+
+    await CreateQuiz.findByIdAndDelete(id);
+    res.json({ success: true, message: "Quiz deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Edit Quiz
+export const updateQuiz = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { teacherId, title, description, questions, lectureName, subject, duration, difficulty } = req.body;
+
+    const quiz = await CreateQuiz.findById(id);
+    if (!quiz) return res.status(404).json({ success: false, message: "Quiz not found" });
+
+    // Check if teacher owns the quiz
+    if (quiz.teacherId.toString() !== teacherId) {
+      return res.status(403).json({ success: false, message: "Unauthorized: You can only edit your own quizzes" });
+    }
+
+    // Update quiz
+    const updatedQuiz = await CreateQuiz.findByIdAndUpdate(
+      id,
+      {
+        title,
+        description,
+        lectureName,
+        subject,
+        duration,
+        difficulty,
+        questions,
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, message: "Quiz updated successfully", quiz: updatedQuiz });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Get Teacher's Own Quizzes
+export const getTeacherQuizzes = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+
+    const quizzes = await CreateQuiz.find({ teacherId }).sort({ createdAt: -1 });
+    res.json({ success: true, quizzes });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
