@@ -1,0 +1,8 @@
+{
+  "liveServer.settings.default": {
+    "host": "localhost",
+    "port": 5500,
+    "root": "/",
+    "browser": "chrome"
+  }
+}

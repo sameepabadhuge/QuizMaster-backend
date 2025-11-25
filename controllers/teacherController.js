@@ -2,6 +2,7 @@ import Teacher from "../models/Teacher.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+
 const JWT_SECRET = process.env.JWT_SECRET || "YOUR_SUPER_SECURE_SECRET_KEY";
 
 export const registerTeacher = async (req, res) => {

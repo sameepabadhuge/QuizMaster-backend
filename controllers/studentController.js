@@ -1,5 +1,6 @@
 import Student from "../models/Student.js";
 import CreateQuiz from "../models/CreateQuiz.js";
+import QuizSubmission from "../models/QuizSubmission.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -87,7 +88,7 @@ export const submitQuiz = async (req, res) => {
   try {
     console.log("📝 Submit Quiz Request Body:", req.body);
     
-    const { quizId, answers } = req.body;
+    const { quizId, answers, studentId } = req.body;
 
     if (!quizId || !answers) {
       console.log("❌ Missing quizId or answers");
@@ -123,6 +124,24 @@ export const submitQuiz = async (req, res) => {
 
     console.log("✅ Quiz graded - Score:", score, "/", totalQuestions);
 
+    // 💾 Save submission to database if studentId provided
+    if (studentId) {
+      try {
+        const submission = await QuizSubmission.create({
+          studentId,
+          quizId,
+          quizTitle: quiz.title,
+          score,
+          totalQuestions,
+          percentage: parseFloat(percentage)
+        });
+        console.log("✅ Quiz submission saved:", submission._id);
+      } catch (saveErr) {
+        console.error("⚠️ Error saving submission:", saveErr);
+        // Don't fail the request if saving fails
+      }
+    }
+
     res.json({
       success: true,
       score,
@@ -134,6 +153,62 @@ export const submitQuiz = async (req, res) => {
 
   } catch (error) {
     console.error("❌ Quiz Submission Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getLeaderboard = async (req, res) => {
+  try {
+    // Aggregate submissions by student and calculate total score
+    const leaderboard = await QuizSubmission.aggregate([
+      {
+        $group: {
+          _id: "$studentId",
+          totalScore: { $sum: "$score" },
+          totalQuestions: { $sum: "$totalQuestions" },
+          quizzesAttempted: { $sum: 1 },
+          averagePercentage: { $avg: "$percentage" }
+        }
+      },
+      {
+        $lookup: {
+          from: "students",
+          localField: "_id",
+          foreignField: "_id",
+          as: "studentInfo"
+        }
+      },
+      { $unwind: "$studentInfo" },
+      {
+        $project: {
+          _id: 0,
+          studentId: "$_id",
+          firstName: "$studentInfo.firstName",
+          lastName: "$studentInfo.lastName",
+          email: "$studentInfo.email",
+          totalScore: 1,
+          totalQuestions: 1,
+          quizzesAttempted: 1,
+          averagePercentage: { $round: ["$averagePercentage", 2] }
+        }
+      },
+      { $sort: { totalScore: -1 } },
+      { $limit: 50 }
+    ]);
+
+    // Add rank
+    const leaderboardWithRank = leaderboard.map((student, index) => ({
+      ...student,
+      rank: index + 1
+    }));
+
+    res.json({
+      success: true,
+      leaderboard: leaderboardWithRank
+    });
+
+  } catch (error) {
+    console.error("❌ Leaderboard Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
