@@ -1,8 +1,10 @@
 import Student from "../models/Student.js";
 import CreateQuiz from "../models/CreateQuiz.js";
 import QuizSubmission from "../models/QuizSubmission.js";
+import QuizResultDetail from "../models/QuizResultDetail.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 export const registerStudent = async (req, res) => {
   try {
@@ -66,6 +68,15 @@ export const loginStudent = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    console.log("🔍 Retrieved student from database:", student);
+    console.log("🔑 Generated token:", token);
+    console.log("📤 Sending response with student data:", {
+      id: student._id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      email: student.email,
+    });
+
     return res.status(200).json({
       success: true,
       message: "Student logged in successfully",
@@ -87,12 +98,23 @@ export const loginStudent = async (req, res) => {
 export const submitQuiz = async (req, res) => {
   try {
     console.log("📝 Submit Quiz Request Body:", req.body);
-    
+
     const { quizId, answers, studentId } = req.body;
 
     if (!quizId || !answers) {
       console.log("❌ Missing quizId or answers");
       return res.status(400).json({ success: false, message: "Quiz ID and answers are required" });
+    }
+
+    if (!studentId) {
+      console.log("❌ studentId is missing in the request body.");
+      return res.status(400).json({ success: false, message: "Student ID is required to submit the quiz." });
+    }
+
+    const validStudentId = mongoose.Types.ObjectId.isValid(studentId) ? new mongoose.Types.ObjectId(studentId) : null;
+    if (!validStudentId) {
+      console.log("❌ Invalid studentId format:", studentId);
+      return res.status(400).json({ success: false, message: "Invalid Student ID format." });
     }
 
     console.log("🔍 Finding quiz with ID:", quizId);
@@ -108,7 +130,7 @@ export const submitQuiz = async (req, res) => {
       const userAnswer = answers[index];
       const correctAnswer = question.options[question.correctAnswer];
       const isCorrect = userAnswer === correctAnswer;
-      
+
       if (isCorrect) score++;
 
       return {
@@ -123,6 +145,38 @@ export const submitQuiz = async (req, res) => {
     const percentage = ((score / totalQuestions) * 100).toFixed(2);
 
     console.log("✅ Quiz graded - Score:", score, "/", totalQuestions);
+
+    // 💾 Save detailed results to database
+    let resultId = null;
+    if (studentId) {
+      try {
+        console.log("Creating QuizResultDetail with data:", {
+          studentId,
+          quizId,
+          quizTitle: quiz.title,
+          score,
+          totalQuestions,
+          percentage: parseFloat(percentage),
+          results
+        });
+        const resultDetail = await QuizResultDetail.create({
+          studentId,
+          quizId,
+          quizTitle: quiz.title,
+          score,
+          totalQuestions,
+          percentage: parseFloat(percentage),
+          results
+        });
+        resultId = resultDetail._id;
+        console.log("✅ Detailed result saved with ID:", resultId);
+      } catch (saveErr) {
+        console.error("⚠️ Error saving result details:", saveErr);
+        console.error("Error details:", saveErr.message);
+      }
+    } else {
+      console.log("⚠️ No studentId provided, skipping result save");
+    }
 
     // 💾 Save submission to database if studentId provided
     if (studentId) {
@@ -148,7 +202,8 @@ export const submitQuiz = async (req, res) => {
       totalQuestions,
       percentage,
       results,
-      quizTitle: quiz.title
+      quizTitle: quiz.title,
+      resultId
     });
 
   } catch (error) {
@@ -209,6 +264,28 @@ export const getLeaderboard = async (req, res) => {
 
   } catch (error) {
     console.error("❌ Leaderboard Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+export const getQuizResult = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log("📊 Fetching quiz result with ID:", id);
+
+    const result = await QuizResultDetail.findById(id);
+    
+    if (!result) {
+      return res.status(404).json({ success: false, message: "Quiz result not found" });
+    }
+
+    res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error) {
+    console.error("❌ Get Quiz Result Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
