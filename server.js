@@ -5,6 +5,7 @@ import connectDB from "./config/db.js";
 import createQuizRoutes from "./routes/CreateQuizRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
+import quizRoutes from "./routes/quizRoutes.js";
 import { login } from "./controllers/auth.controller.js";
 
 dotenv.config();
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use("/api/students", studentRoutes);
 app.use("/api/teachers", teacherRoutes); 
 app.use("/api/createquiz", createQuizRoutes);
+app.use("/api/students/quiz-result", quizRoutes);
 
 app.post("/api/login", login);
 
