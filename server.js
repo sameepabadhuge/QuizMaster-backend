@@ -6,6 +6,7 @@ import createQuizRoutes from "./routes/CreateQuizRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import quizRoutes from "./routes/quizRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import { login } from "./controllers/auth.controller.js";
 
 dotenv.config();
@@ -18,6 +19,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/teachers", teacherRoutes); 
 app.use("/api/createquiz", createQuizRoutes);
