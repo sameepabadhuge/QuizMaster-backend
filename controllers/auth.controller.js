@@ -79,3 +79,22 @@ export const login = async (req, res) => {
     });
   }
 };
+
+/**
+ * CHECK LOGIN STATUS CONTROLLER
+ * Verifies if the user is logged in based on the provided token.
+ */
+export const checkLoginStatus = (req, res) => {
+  const token = req.cookies?.token; // Assuming token is stored in cookies
+
+  if (!token) {
+    return res.status(200).json({ isLoggedIn: false });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    res.status(200).json({ isLoggedIn: true, role: decoded.role });
+  } catch (error) {
+    res.status(200).json({ isLoggedIn: false });
+  }
+};
