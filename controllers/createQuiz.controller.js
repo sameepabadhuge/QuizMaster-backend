@@ -3,10 +3,20 @@ import CreateQuiz from "../models/CreateQuiz.js";
 // ✅ Teacher Creates a Quiz
 export const createQuiz = async (req, res) => {
   try {
+    console.log("📨 Received payload:", req.body);
+    
     const { title, description, teacherId, questions, lectureName, subject, duration, difficulty } = req.body;
 
+    console.log("Title:", title, "| TeacherId:", teacherId, "| Questions:", questions?.length);
+
     if (!title || !teacherId || !questions) {
-      return res.status(400).json({ success: false, message: "Missing required fields" });
+      console.log("❌ Validation error - Missing fields");
+      return res.status(400).json({ success: false, message: "Missing required fields: title, teacherId, and questions are required" });
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      console.log("❌ Validation error - Questions not array or empty");
+      return res.status(400).json({ success: false, message: "Questions must be a non-empty array" });
     }
 
     const quiz = await CreateQuiz.create({
@@ -20,10 +30,11 @@ export const createQuiz = async (req, res) => {
       questions,
     });
 
-    res.status(201).json({ success: true, quiz });
+    res.status(201).json({ success: true, message: "Quiz created successfully", quiz });
   } catch (err) {
-    console.error("Error creating quiz:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    console.error("Error creating quiz:", err.message);
+    console.error("Full error:", err);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 };
 
