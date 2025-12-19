@@ -146,11 +146,11 @@ export const submitQuiz = async (req, res) => {
 
     console.log("✅ Quiz graded - Score:", score, "/", totalQuestions);
 
-    // 💾 Save detailed results to database
+    // 💾 Save/Update detailed results to database
     let resultId = null;
     if (studentId) {
       try {
-        console.log("Creating QuizResultDetail with data:", {
+        console.log("Saving/Updating QuizResultDetail with data:", {
           studentId,
           quizId,
           quizTitle: quiz.title,
@@ -159,17 +159,26 @@ export const submitQuiz = async (req, res) => {
           percentage: parseFloat(percentage),
           results
         });
-        const resultDetail = await QuizResultDetail.create({
-          studentId,
-          quizId,
-          quizTitle: quiz.title,
-          score,
-          totalQuestions,
-          percentage: parseFloat(percentage),
-          results
-        });
+        
+        // Find existing result and update, or create new one
+        const resultDetail = await QuizResultDetail.findOneAndUpdate(
+          { studentId, quizId }, // Find by student and quiz
+          {
+            quizTitle: quiz.title,
+            score,
+            totalQuestions,
+            percentage: parseFloat(percentage),
+            results,
+            createdAt: new Date() // Update submission time
+          },
+          { 
+            new: true, // Return updated document
+            upsert: true, // Create if doesn't exist
+            setDefaultsOnInsert: true 
+          }
+        );
         resultId = resultDetail._id;
-        console.log("✅ Detailed result saved with ID:", resultId);
+        console.log("✅ Detailed result saved/updated with ID:", resultId);
       } catch (saveErr) {
         console.error("⚠️ Error saving result details:", saveErr);
         console.error("Error details:", saveErr.message);
@@ -178,18 +187,26 @@ export const submitQuiz = async (req, res) => {
       console.log("⚠️ No studentId provided, skipping result save");
     }
 
-    // 💾 Save submission to database if studentId provided
+    // 💾 Save/Update submission to database if studentId provided
     if (studentId) {
       try {
-        const submission = await QuizSubmission.create({
-          studentId,
-          quizId,
-          quizTitle: quiz.title,
-          score,
-          totalQuestions,
-          percentage: parseFloat(percentage)
-        });
-        console.log("✅ Quiz submission saved:", submission._id);
+        // Find existing submission and update, or create new one
+        const submission = await QuizSubmission.findOneAndUpdate(
+          { studentId, quizId }, // Find by student and quiz
+          {
+            quizTitle: quiz.title,
+            score,
+            totalQuestions,
+            percentage: parseFloat(percentage),
+            submittedAt: new Date() // Update submission time
+          },
+          { 
+            new: true, // Return updated document
+            upsert: true, // Create if doesn't exist
+            setDefaultsOnInsert: true 
+          }
+        );
+        console.log("✅ Quiz submission saved/updated:", submission._id);
       } catch (saveErr) {
         console.error("⚠️ Error saving submission:", saveErr);
         // Don't fail the request if saving fails
@@ -214,42 +231,102 @@ export const submitQuiz = async (req, res) => {
 
 export const getLeaderboard = async (req, res) => {
   try {
-    // Aggregate submissions by student and calculate total score
-    const leaderboard = await QuizSubmission.aggregate([
-      {
-        $group: {
-          _id: "$studentId",
-          totalScore: { $sum: "$score" },
-          totalQuestions: { $sum: "$totalQuestions" },
-          quizzesAttempted: { $sum: 1 },
-          averagePercentage: { $avg: "$percentage" }
-        }
-      },
-      {
-        $lookup: {
-          from: "students",
-          localField: "_id",
-          foreignField: "_id",
-          as: "studentInfo"
-        }
-      },
-      { $unwind: "$studentInfo" },
-      {
-        $project: {
-          _id: 0,
-          studentId: "$_id",
-          firstName: "$studentInfo.firstName",
-          lastName: "$studentInfo.lastName",
-          email: "$studentInfo.email",
-          totalScore: 1,
-          totalQuestions: 1,
-          quizzesAttempted: 1,
-          averagePercentage: { $round: ["$averagePercentage", 2] }
-        }
-      },
-      { $sort: { totalScore: -1 } },
-      { $limit: 50 }
-    ]);
+    const { subject } = req.query;
+    
+    // Build the aggregation pipeline
+    let pipeline = [];
+    
+    // If subject filter is provided, we need to join with quizzes first
+    if (subject && subject !== "all") {
+      pipeline = [
+        {
+          $lookup: {
+            from: "createquizzes",
+            localField: "quizId",
+            foreignField: "_id",
+            as: "quizInfo"
+          }
+        },
+        { $unwind: "$quizInfo" },
+        {
+          $match: { "quizInfo.subject": subject }
+        },
+        {
+          $group: {
+            _id: "$studentId",
+            totalScore: { $sum: "$score" },
+            totalQuestions: { $sum: "$totalQuestions" },
+            quizzesAttempted: { $sum: 1 },
+            averagePercentage: { $avg: "$percentage" }
+          }
+        },
+        {
+          $lookup: {
+            from: "students",
+            localField: "_id",
+            foreignField: "_id",
+            as: "studentInfo"
+          }
+        },
+        { $unwind: "$studentInfo" },
+        {
+          $project: {
+            _id: 0,
+            studentId: "$_id",
+            firstName: "$studentInfo.firstName",
+            lastName: "$studentInfo.lastName",
+            email: "$studentInfo.email",
+            profilePhoto: "$studentInfo.profilePhoto",
+            totalScore: 1,
+            totalQuestions: 1,
+            quizzesAttempted: 1,
+            averagePercentage: { $round: ["$averagePercentage", 2] }
+          }
+        },
+        { $sort: { totalScore: -1 } },
+        { $limit: 50 }
+      ];
+    } else {
+      // No subject filter - original query
+      pipeline = [
+        {
+          $group: {
+            _id: "$studentId",
+            totalScore: { $sum: "$score" },
+            totalQuestions: { $sum: "$totalQuestions" },
+            quizzesAttempted: { $sum: 1 },
+            averagePercentage: { $avg: "$percentage" }
+          }
+        },
+        {
+          $lookup: {
+            from: "students",
+            localField: "_id",
+            foreignField: "_id",
+            as: "studentInfo"
+          }
+        },
+        { $unwind: "$studentInfo" },
+        {
+          $project: {
+            _id: 0,
+            studentId: "$_id",
+            firstName: "$studentInfo.firstName",
+            lastName: "$studentInfo.lastName",
+            email: "$studentInfo.email",
+            profilePhoto: "$studentInfo.profilePhoto",
+            totalScore: 1,
+            totalQuestions: 1,
+            quizzesAttempted: 1,
+            averagePercentage: { $round: ["$averagePercentage", 2] }
+          }
+        },
+        { $sort: { totalScore: -1 } },
+        { $limit: 50 }
+      ];
+    }
+
+    const leaderboard = await QuizSubmission.aggregate(pipeline);
 
     // Add rank
     const leaderboardWithRank = leaderboard.map((student, index) => ({
@@ -257,9 +334,33 @@ export const getLeaderboard = async (req, res) => {
       rank: index + 1
     }));
 
+    // Get available subjects from all quizzes
+    const subjectsAgg = await QuizSubmission.aggregate([
+      {
+        $lookup: {
+          from: "createquizzes",
+          localField: "quizId",
+          foreignField: "_id",
+          as: "quizInfo"
+        }
+      },
+      { $unwind: "$quizInfo" },
+      {
+        $group: {
+          _id: "$quizInfo.subject"
+        }
+      },
+      {
+        $match: { _id: { $ne: null, $ne: "" } }
+      }
+    ]);
+    
+    const subjects = subjectsAgg.map(s => s._id).filter(s => s);
+
     res.json({
       success: true,
-      leaderboard: leaderboardWithRank
+      leaderboard: leaderboardWithRank,
+      subjects
     });
 
   } catch (error) {
@@ -286,6 +387,116 @@ export const getQuizResult = async (req, res) => {
 
   } catch (error) {
     console.error("❌ Get Quiz Result Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// Get all quiz results for a specific student
+export const getStudentQuizResults = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    console.log("📊 Fetching all quiz results for student:", studentId);
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ success: false, message: "Invalid student ID" });
+    }
+
+    const results = await QuizResultDetail.find({ studentId })
+      .populate({
+        path: 'quizId',
+        select: 'teacherId',
+        populate: {
+          path: 'teacherId',
+          select: 'firstName lastName profilePicture'
+        }
+      })
+      .sort({ createdAt: -1 })
+      .select('_id quizId quizTitle score totalQuestions percentage createdAt');
+
+    // Transform results to include teacher info at top level
+    const transformedResults = results.map(result => {
+      const resultObj = result.toObject();
+      if (resultObj.quizId && resultObj.quizId.teacherId) {
+        resultObj.teacher = resultObj.quizId.teacherId;
+      }
+      return resultObj;
+    });
+
+    res.json({
+      success: true,
+      results: transformedResults
+    });
+
+  } catch (error) {
+    console.error("❌ Get Student Quiz Results Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// Get student profile by ID
+export const getStudentProfile = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ success: false, message: "Invalid student ID" });
+    }
+
+    const student = await Student.findById(studentId).select('-password');
+    
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    res.json({
+      success: true,
+      student
+    });
+
+  } catch (error) {
+    console.error("❌ Get Student Profile Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// Update student profile
+export const updateStudentProfile = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { firstName, lastName, username, email, profilePhoto } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ success: false, message: "Invalid student ID" });
+    }
+
+    // Check if username or email is already taken by another user
+    const existingUser = await Student.findOne({
+      $or: [{ email }, { username }],
+      _id: { $ne: studentId }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "Email or Username already taken" });
+    }
+
+    const updatedStudent = await Student.findByIdAndUpdate(
+      studentId,
+      { firstName, lastName, username, email, profilePhoto },
+      { new: true }
+    ).select('-password');
+
+    if (!updatedStudent) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      student: updatedStudent
+    });
+
+  } catch (error) {
+    console.error("❌ Update Student Profile Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
