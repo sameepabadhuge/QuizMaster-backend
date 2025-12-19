@@ -41,7 +41,9 @@ export const createQuiz = async (req, res) => {
 // ✅ Get All Quizzes
 export const getAllQuizzes = async (req, res) => {
   try {
-    const quizzes = await CreateQuiz.find().sort({ createdAt: -1 });
+    const quizzes = await CreateQuiz.find()
+      .populate('teacherId', 'firstName lastName profilePicture')
+      .sort({ createdAt: -1 });
     res.json({ success: true, quizzes });
   } catch (err) {
     console.error(err);
