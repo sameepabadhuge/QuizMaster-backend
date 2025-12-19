@@ -83,3 +83,98 @@ export const loginTeacher = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
+// Get teacher profile
+export const getTeacherProfile = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    
+    const teacher = await Teacher.findById(teacherId).select("-password");
+    
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: "Teacher not found" });
+    }
+
+    res.json({ success: true, teacher });
+  } catch (error) {
+    console.error("Get Profile Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// Update teacher profile
+export const updateTeacherProfile = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const { firstName, lastName, username, email, subject, phone, bio, profilePicture } = req.body;
+
+    const teacher = await Teacher.findById(teacherId);
+    
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: "Teacher not found" });
+    }
+
+    // Check if username or email already exists (for other users)
+    if (username !== teacher.username) {
+      const existingUsername = await Teacher.findOne({ username, _id: { $ne: teacherId } });
+      if (existingUsername) {
+        return res.status(400).json({ success: false, message: "Username already taken" });
+      }
+    }
+
+    if (email !== teacher.email) {
+      const existingEmail = await Teacher.findOne({ email, _id: { $ne: teacherId } });
+      if (existingEmail) {
+        return res.status(400).json({ success: false, message: "Email already in use" });
+      }
+    }
+
+    // Update fields
+    teacher.firstName = firstName || teacher.firstName;
+    teacher.lastName = lastName || teacher.lastName;
+    teacher.username = username || teacher.username;
+    teacher.email = email || teacher.email;
+    teacher.subject = subject || teacher.subject;
+    teacher.phone = phone !== undefined ? phone : teacher.phone;
+    teacher.bio = bio !== undefined ? bio : teacher.bio;
+    teacher.profilePicture = profilePicture !== undefined ? profilePicture : teacher.profilePicture;
+
+    await teacher.save();
+
+    const teacherObject = teacher.toObject();
+    delete teacherObject.password;
+
+    res.json({ success: true, message: "Profile updated successfully", teacher: teacherObject });
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// Change password
+export const changeTeacherPassword = async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    const teacher = await Teacher.findById(teacherId);
+    
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: "Teacher not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, teacher.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Current password is incorrect" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    teacher.password = hashedPassword;
+    await teacher.save();
+
+    res.json({ success: true, message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
