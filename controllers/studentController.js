@@ -18,6 +18,10 @@ export const registerStudent = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
+    if (password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+
     const existingUser = await Student.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.status(400).json({ message: "Email or Username already exists" });
@@ -497,6 +501,44 @@ export const updateStudentProfile = async (req, res) => {
 
   } catch (error) {
     console.error("❌ Update Student Profile Error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+};
+
+// Change student password
+export const changeStudentPassword = async (req, res) => {
+  try {
+    const paramId = req.params.studentId;
+    const bodyId = req.body.studentId;
+    const studentId = paramId || bodyId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ success: false, message: "Invalid student ID" });
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+    }
+
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, student.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Current password is incorrect" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    student.password = hashedPassword;
+    await student.save();
+
+    res.json({ success: true, message: "Password changed successfully" });
+  } catch (error) {
+    console.error("❌ Change Student Password Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
