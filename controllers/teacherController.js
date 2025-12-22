@@ -17,6 +17,10 @@ export const registerTeacher = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
+    if (password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+
     const existingTeacher = await Teacher.findOne({ $or: [{ email }, { username }] });
     if (existingTeacher) {
       return res.status(400).json({ message: "Email or Username already exists" });
@@ -129,6 +133,14 @@ export const updateTeacherProfile = async (req, res) => {
       }
     }
 
+    // Validate phone if provided
+    if (phone !== undefined && phone !== null && phone !== "") {
+      const phoneStr = String(phone);
+      if (!/^\d{10}$/.test(phoneStr)) {
+        return res.status(400).json({ success: false, message: "Phone number must be exactly 10 digits" });
+      }
+    }
+
     // Update fields
     teacher.firstName = firstName || teacher.firstName;
     teacher.lastName = lastName || teacher.lastName;
@@ -156,6 +168,10 @@ export const changeTeacherPassword = async (req, res) => {
   try {
     const { teacherId } = req.params;
     const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+    }
 
     const teacher = await Teacher.findById(teacherId);
     
