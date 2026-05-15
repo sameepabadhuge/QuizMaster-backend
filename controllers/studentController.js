@@ -6,6 +6,12 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined in environment variables");
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
 export const registerStudent = async (req, res) => {
   try {
     const { firstName, lastName, username, email, password, confirmPassword } = req.body;
@@ -68,13 +74,13 @@ export const loginStudent = async (req, res) => {
 
     const token = jwt.sign(
       { id: student._id, role: "student" },
-      process.env.JWT_SECRET || "default_jwt_secret",
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    console.log("🔍 Retrieved student from database:", student);
-    console.log("🔑 Generated token:", token);
-    console.log("📤 Sending response with student data:", {
+    console.log("Retrieved student from database:", student);
+    console.log("Generated token:", token);
+    console.log("Sending response with student data:", {
       id: student._id,
       firstName: student.firstName,
       lastName: student.lastName,
@@ -101,34 +107,34 @@ export const loginStudent = async (req, res) => {
 
 export const submitQuiz = async (req, res) => {
   try {
-    console.log("📝 Submit Quiz Request Body:", req.body);
+    console.log(" Submit Quiz Request Body:", req.body);
 
     const { quizId, answers, studentId } = req.body;
 
     if (!quizId || !answers) {
-      console.log("❌ Missing quizId or answers");
+      console.log("Missing quizId or answers");
       return res.status(400).json({ success: false, message: "Quiz ID and answers are required" });
     }
 
     if (!studentId) {
-      console.log("❌ studentId is missing in the request body.");
+      console.log("studentId is missing in the request body.");
       return res.status(400).json({ success: false, message: "Student ID is required to submit the quiz." });
     }
 
     const validStudentId = mongoose.Types.ObjectId.isValid(studentId) ? new mongoose.Types.ObjectId(studentId) : null;
     if (!validStudentId) {
-      console.log("❌ Invalid studentId format:", studentId);
+      console.log(" Invalid studentId format:", studentId);
       return res.status(400).json({ success: false, message: "Invalid Student ID format." });
     }
 
-    console.log("🔍 Finding quiz with ID:", quizId);
+    console.log("Finding quiz with ID:", quizId);
     const quiz = await CreateQuiz.findById(quizId);
     if (!quiz) {
-      console.log("❌ Quiz not found");
+      console.log(" Quiz not found");
       return res.status(404).json({ success: false, message: "Quiz not found" });
     }
 
-    console.log("✅ Quiz found:", quiz.title);
+    console.log("Quiz found:", quiz.title);
     let score = 0;
     const results = quiz.questions.map((question, index) => {
       const userAnswer = answers[index];
@@ -148,9 +154,9 @@ export const submitQuiz = async (req, res) => {
     const totalQuestions = quiz.questions.length;
     const percentage = ((score / totalQuestions) * 100).toFixed(2);
 
-    console.log("✅ Quiz graded - Score:", score, "/", totalQuestions);
+    console.log("Quiz graded - Score:", score, "/", totalQuestions);
 
-    // 💾 Save/Update detailed results to database
+    // Save/Update detailed results to database
     let resultId = null;
     if (studentId) {
       try {
@@ -182,16 +188,16 @@ export const submitQuiz = async (req, res) => {
           }
         );
         resultId = resultDetail._id;
-        console.log("✅ Detailed result saved/updated with ID:", resultId);
+        console.log("Detailed result saved/updated with ID:", resultId);
       } catch (saveErr) {
-        console.error("⚠️ Error saving result details:", saveErr);
+        console.error(" Error saving result details:", saveErr);
         console.error("Error details:", saveErr.message);
       }
     } else {
-      console.log("⚠️ No studentId provided, skipping result save");
+      console.log(" No studentId provided, skipping result save");
     }
 
-    // 💾 Save/Update submission to database if studentId provided
+    // Save/Update submission to database if studentId provided
     if (studentId) {
       try {
         // Find existing submission and update, or create new one
@@ -210,9 +216,9 @@ export const submitQuiz = async (req, res) => {
             setDefaultsOnInsert: true 
           }
         );
-        console.log("✅ Quiz submission saved/updated:", submission._id);
+        console.log(" Quiz submission saved/updated:", submission._id);
       } catch (saveErr) {
-        console.error("⚠️ Error saving submission:", saveErr);
+        console.error("Error saving submission:", saveErr);
         // Don't fail the request if saving fails
       }
     }
@@ -228,7 +234,7 @@ export const submitQuiz = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Quiz Submission Error:", error);
+    console.error(" Quiz Submission Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
@@ -368,7 +374,7 @@ export const getLeaderboard = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Leaderboard Error:", error);
+    console.error(" Leaderboard Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
@@ -376,7 +382,7 @@ export const getLeaderboard = async (req, res) => {
 export const getQuizResult = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("📊 Fetching quiz result with ID:", id);
+    console.log(" Fetching quiz result with ID:", id);
 
     const result = await QuizResultDetail.findById(id);
     
@@ -390,7 +396,7 @@ export const getQuizResult = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Get Quiz Result Error:", error);
+    console.error(" Get Quiz Result Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
@@ -399,7 +405,7 @@ export const getQuizResult = async (req, res) => {
 export const getStudentQuizResults = async (req, res) => {
   try {
     const { studentId } = req.params;
-    console.log("📊 Fetching all quiz results for student:", studentId);
+    console.log(" Fetching all quiz results for student:", studentId);
 
     if (!mongoose.Types.ObjectId.isValid(studentId)) {
       return res.status(400).json({ success: false, message: "Invalid student ID" });
@@ -432,7 +438,7 @@ export const getStudentQuizResults = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Get Student Quiz Results Error:", error);
+    console.error("Get Student Quiz Results Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
@@ -458,7 +464,7 @@ export const getStudentProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Get Student Profile Error:", error);
+    console.error("Get Student Profile Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
@@ -500,7 +506,7 @@ export const updateStudentProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Update Student Profile Error:", error);
+    console.error("Update Student Profile Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
@@ -538,7 +544,7 @@ export const changeStudentPassword = async (req, res) => {
 
     res.json({ success: true, message: "Password changed successfully" });
   } catch (error) {
-    console.error("❌ Change Student Password Error:", error);
+    console.error(" Change Student Password Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };

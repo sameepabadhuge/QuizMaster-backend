@@ -1,21 +1,21 @@
 import CreateQuiz from "../models/CreateQuiz.js";
 
-// ✅ Teacher Creates a Quiz
+// Teacher Creates a Quiz
 export const createQuiz = async (req, res) => {
   try {
-    console.log("📨 Received payload:", req.body);
+    console.log(" Received payload:", req.body);
     
     const { title, description, teacherId, questions, lectureName, subject, duration, difficulty } = req.body;
 
     console.log("Title:", title, "| TeacherId:", teacherId, "| Questions:", questions?.length);
 
     if (!title || !teacherId || !questions) {
-      console.log("❌ Validation error - Missing fields");
+      console.log(" Validation error - Missing fields");
       return res.status(400).json({ success: false, message: "Missing required fields: title, teacherId, and questions are required" });
     }
 
     if (!Array.isArray(questions) || questions.length === 0) {
-      console.log("❌ Validation error - Questions not array or empty");
+      console.log(" Validation error - Questions not array or empty");
       return res.status(400).json({ success: false, message: "Questions must be a non-empty array" });
     }
 
@@ -38,7 +38,7 @@ export const createQuiz = async (req, res) => {
   }
 };
 
-// ✅ Get All Quizzes
+// Get All Quizzes
 export const getAllQuizzes = async (req, res) => {
   try {
     const quizzes = await CreateQuiz.find()
@@ -51,7 +51,7 @@ export const getAllQuizzes = async (req, res) => {
   }
 };
 
-// ✅ Get Quiz by ID
+// Get Quiz by ID
 export const getQuizById = async (req, res) => {
   try {
     const quiz = await CreateQuiz.findById(req.params.id);
@@ -63,7 +63,7 @@ export const getQuizById = async (req, res) => {
   }
 };
 
-// 🗑️ Delete quiz
+//  Delete quiz
 export const deleteQuiz = async (req, res) => {
   try {
     const { id } = req.params;
@@ -85,7 +85,7 @@ export const deleteQuiz = async (req, res) => {
   }
 };
 
-// ✅ Edit Quiz
+// Edit Quiz
 export const updateQuiz = async (req, res) => {
   try {
     const { id } = req.params;
@@ -121,7 +121,7 @@ export const updateQuiz = async (req, res) => {
   }
 };
 
-// ✅ Get Teacher's Own Quizzes
+// Get Teacher's Own Quizzes
 export const getTeacherQuizzes = async (req, res) => {
   try {
     const { teacherId } = req.params;

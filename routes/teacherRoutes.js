@@ -41,11 +41,11 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-// ✅ GET detailed quiz result by studentId and quizId (for teachers to view)
+// GET detailed quiz result by studentId and quizId (for teachers to view)
 router.get("/submission-detail/:studentId/:quizId", async (req, res) => {
   try {
     const { studentId, quizId } = req.params;
-    console.log("📊 Fetching submission detail for student:", studentId, "quiz:", quizId);
+    console.log(" Fetching submission detail for student:", studentId, "quiz:", quizId);
 
     const QuizResultDetail = (await import("../models/QuizResultDetail.js")).default;
     
@@ -63,16 +63,16 @@ router.get("/submission-detail/:studentId/:quizId", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Get Submission Detail Error:", error);
+    console.error("Get Submission Detail Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 });
 
-// ✅ GET quiz submissions for a specific teacher
+//  GET quiz submissions for a specific teacher
 router.get("/submissions/:teacherId", async (req, res) => {
   try {
     const { teacherId } = req.params;
-    console.log("📨 Fetching submissions for teacher:", teacherId);
+    console.log(" Fetching submissions for teacher:", teacherId);
 
     // Convert teacherId to ObjectId if it's a valid string
     let teacherObjectId;
@@ -159,12 +159,12 @@ router.get("/submissions/:teacherId", async (req, res) => {
   }
 });
 
-// ✅ GET leaderboard for a specific teacher's quizzes with optional subject filter
+// GET leaderboard for a specific teacher's quizzes with optional subject filter
 router.get("/leaderboard/:teacherId", async (req, res) => {
   try {
     const { teacherId } = req.params;
     const { subject } = req.query;
-    console.log("🏆 Fetching leaderboard for teacher:", teacherId, "subject:", subject || "all");
+    console.log("Fetching leaderboard for teacher:", teacherId, "subject:", subject || "all");
 
     // Convert teacherId to ObjectId
     let teacherObjectId;
@@ -264,7 +264,7 @@ router.get("/leaderboard/:teacherId", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Teacher Leaderboard Error:", error);
+    console.error("Teacher Leaderboard Error:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 });

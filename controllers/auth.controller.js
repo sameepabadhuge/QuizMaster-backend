@@ -1,10 +1,15 @@
 // backend/controllers/auth.controller.js
+
 import Student from "../models/Student.js";
-import Teacher from "../models/Teacher.js"; // Add teacher model if needed
+import Teacher from "../models/Teacher.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "YOUR_SUPER_SECURE_SECRET_KEY";
+//  Ensure JWT_SECRET exists
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined in environment variables");
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /**
  * LOGIN CONTROLLER
@@ -22,14 +27,15 @@ export const login = async (req, res) => {
       });
     }
 
-    // 2. Find user in the correct collection
-    let user;
+    const normalizedEmail = email.toLowerCase();
     const normalizedRole = role.toLowerCase();
-    
+
+    // 2. Find user
+    let user;
     if (normalizedRole === "student") {
-      user = await Student.findOne({ email });
+      user = await Student.findOne({ email: normalizedEmail });
     } else if (normalizedRole === "teacher") {
-      user = await Teacher.findOne({ email });
+      user = await Teacher.findOne({ email: normalizedEmail });
     } else {
       return res.status(400).json({
         success: false,
@@ -59,21 +65,35 @@ export const login = async (req, res) => {
       role: normalizedRole,
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign(payload, JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
-    // 5. Convert user document to plain object and remove password
+    // 5. Remove password from response
     const userObject = user.toObject();
     delete userObject.password;
 
-    res.status(200).json({
+    // 6. Store token in HTTP-only cookie 
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS only in prod
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // 7. Send response (no token exposed)
+    return res.status(200).json({
       success: true,
       message: "Login successful!",
-      token,
       user: userObject,
     });
+
   } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({
+    if (process.env.NODE_ENV === "development") {
+      console.error("Login Error:", error);
+    }
+
+    return res.status(500).json({
       success: false,
       message: "Server error during login process.",
     });
@@ -82,10 +102,9 @@ export const login = async (req, res) => {
 
 /**
  * CHECK LOGIN STATUS CONTROLLER
- * Verifies if the user is logged in based on the provided token.
  */
 export const checkLoginStatus = (req, res) => {
-  const token = req.cookies?.token; // Assuming token is stored in cookies
+  const token = req.cookies?.token;
 
   if (!token) {
     return res.status(200).json({ isLoggedIn: false });
@@ -93,8 +112,30 @@ export const checkLoginStatus = (req, res) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    res.status(200).json({ isLoggedIn: true, role: decoded.role });
+
+    return res.status(200).json({
+      isLoggedIn: true,
+      role: decoded.role,
+      userId: decoded.id,
+    });
+
   } catch (error) {
-    res.status(200).json({ isLoggedIn: false });
+    return res.status(200).json({ isLoggedIn: false });
   }
+};
+
+/**
+ * LOGOUT CONTROLLER
+ */
+export const logout = (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
+  });
 };
